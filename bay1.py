@@ -3,7 +3,7 @@ import xgboost as xgb
 import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, ElasticNet
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, accuracy_score
 
@@ -64,15 +64,18 @@ class Trainer:
         print("Logistic Regression")
         X, Y = self.dataMaker(self.train,self.yColName)
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.1, random_state=42)
-        pens = ['l2',None]
-        for pen in pens:
-            logi = LogisticRegression(penalty=pen)
-            print(f'Parameters : {logi.get_params()}')
-            logi.fit(X_train,y_train)
-            ypred = logi.predict(X_test)
-            self.displayer(ypred,y_test)
-
-
+        logi = LogisticRegression(penalty=None,max_iter=100)
+        print(f'Parameters : {logi.get_params()}')
+        logi.fit(X_train,y_train)
+        filter_X_train, X_test,topper = self.important_feats(logi,X_train, X_test)
+        logi.fit(filter_X_train, y_train)
+        ypred = logi.predict(self.test)
+        print(ypred)
+        truePred = np.exp(logi.predict(self.test[topper]))
+        print(truePred)
+        #print(y_test)
+        #print(Y)
+        #self.displayer(ypred,y_test)
 
     def randomRegress(self,feature_sel=False):
         X, Y = self.dataMaker(self.train,self.yColName)
@@ -112,8 +115,6 @@ def labeller(data,colNames):
 
 main_trainData = pd.read_csv("Placement_Train.csv")
 main_testData = pd.read_csv("Placement_Test.csv")
-y_testData = pd.read_csv("Placement_Sample_Submission.csv")
-main_testData = pd.concat([main_testData,y_testData["Annual_salary"]],axis=1)
 
 nonDigitCols = ["gender","ssc_b","hsc_b","hsc_s","degree_t","workex","specialisation"]
 
@@ -125,7 +126,7 @@ trainData = pd.concat([trainData,main_trainData.drop(nonDigitCols,axis=1)],axis=
 testData,testLabels = labeller(main_testData,nonDigitCols)
 testData = pd.concat([testData,main_testData.drop(nonDigitCols,axis=1)],axis=1)
 #print("testData")
-#print(testData.info())
+#print(main_testData.info())
 
 trainer1 = Trainer(trainData,testData,"Annual_salary")
 #run1 = trainer1.randomRegress(True)
@@ -137,3 +138,6 @@ trainer2 = Trainer(trainData2,testData,"Annual_salary")
 
 trainer3 = Trainer(trainData,testData,"Annual_salary")
 run3 = trainer3.logistics(False)
+
+
+#trainer3.saviour(newTest['SR_no'],guess)
